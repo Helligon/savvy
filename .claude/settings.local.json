@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/alex/.nvm/versions/node/v24.14.1/bin/npm test *)"
+    ]
+  }
+}
