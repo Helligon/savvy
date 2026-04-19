@@ -25,7 +25,7 @@ class TestIngestText:
         txt.write_text("Roll 2d6 and add your modifier.", encoding="utf-8")
 
         with patch("backend.ingest._add_documents") as mock_add:
-            count = ingest_text(str(txt), "dnd5e")
+            count = ingest_text(str(txt), "dnd5e")  # absolute path, no ~ needed
 
         assert count == 1
         mock_add.assert_called_once()

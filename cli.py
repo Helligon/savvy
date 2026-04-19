@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Savvy CLI — TTRPG AI assistant (Phase 1 dev tool)."""
 
-import sys
 from pathlib import Path
+
+from tqdm import tqdm
 
 from backend.ingest import ingest_pdf, ingest_text, ingest_url, list_games
 from backend.chat import ask
@@ -18,9 +19,16 @@ def print_games():
 
 def main():
     print("Savvy — TTRPG Assistant")
-    print("Commands: ingest <file_or_url> <game_id> | games | quit\n")
+    print("Commands: ingest <file_or_url> <game_id> | select <game_id> | games | quit\n")
 
-    selected_games: list[str] = []
+    available = list_games()
+    selected_games: list[str] = list(available)
+
+    if available:
+        print("Indexed games:", ", ".join(available))
+        print("All games auto-selected. Use 'select <game_id>' to narrow down.\n")
+    else:
+        print("No games indexed yet. Use: ingest <file_or_url> <game_id>\n")
 
     while True:
         try:
@@ -48,12 +56,20 @@ def main():
             _, source, game_id = parts
             try:
                 if source.startswith("http"):
+                    print(f"Fetching {source}...")
                     count = ingest_url(source, game_id)
                 elif source.endswith(".pdf"):
-                    count = ingest_pdf(source, game_id)
+                    bar = tqdm(desc=f"Ingesting {Path(source).name}", unit="pages")
+                    def progress(current, total):
+                        bar.total = total
+                        bar.n = current
+                        bar.refresh()
+                    count = ingest_pdf(source, game_id, progress=progress)
+                    bar.close()
                 else:
+                    print(f"Ingesting {Path(source).name}...")
                     count = ingest_text(source, game_id)
-                print(f"Ingested {count} chunk(s) into '{game_id}'.")
+                print(f"Done — {count} chunk(s) indexed into '{game_id}'.")
                 if game_id not in selected_games:
                     selected_games.append(game_id)
                     print(f"'{game_id}' added to active games.")

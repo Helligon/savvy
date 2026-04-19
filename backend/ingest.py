@@ -29,16 +29,22 @@ def get_index(game_id: str) -> VectorStoreIndex:
     return VectorStoreIndex.from_vector_store(store, storage_context=storage)
 
 
-def ingest_pdf(path: str, game_id: str) -> int:
+def ingest_pdf(path: str, game_id: str, progress=None) -> int:
+    path = str(Path(path).expanduser().resolve())
     doc = fitz.open(path)
-    chunks = [Document(text=page.get_text(), metadata={"source": Path(path).name, "page": i + 1})
-              for i, page in enumerate(doc) if page.get_text().strip()]
+    chunks = []
+    for i, page in enumerate(doc):
+        text = page.get_text().strip()
+        if text:
+            chunks.append(Document(text=text, metadata={"source": Path(path).name, "page": i + 1}))
+        if progress:
+            progress(i + 1, len(doc))
     _add_documents(chunks, game_id)
     return len(chunks)
 
 
 def ingest_text(path: str, game_id: str) -> int:
-    text = Path(path).read_text(encoding="utf-8")
+    text = Path(path).expanduser().resolve().read_text(encoding="utf-8")
     chunks = [Document(text=text, metadata={"source": Path(path).name})]
     _add_documents(chunks, game_id)
     return len(chunks)

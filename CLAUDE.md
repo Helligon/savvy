@@ -45,6 +45,11 @@ cli.py            # CLI entry point (Phase 1 dev tool)
 
 ## Commands
 
+Activate the virtual environment first:
+```bash
+source .venv/bin/activate
+```
+
 ```bash
 # Backend (from repo root)
 uvicorn backend.main:app --reload
@@ -57,10 +62,10 @@ npm run build
 python cli.py
 
 # Tests (from repo root)
-.venv/bin/pytest tests/ -v
+pytest tests/ -v
 ```
 
-Ollama must be running before starting the backend: `ollama serve`
+Ollama must be running before starting the backend/CLI: `ollama serve`
 
 ---
 
