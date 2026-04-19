@@ -55,6 +55,9 @@ npm run build
 
 # CLI
 python cli.py
+
+# Tests (from repo root)
+.venv/bin/pytest tests/ -v
 ```
 
 Ollama must be running before starting the backend: `ollama serve`
@@ -63,7 +66,7 @@ Ollama must be running before starting the backend: `ollama serve`
 
 ## Workflow
 
-1. Create feature branch from `main` and name it with using the following example pattern: `<phase>: <message>`
+1. Create feature branch from `main` and name it with using the following example pattern: `<phase>/ <message>`
 2. Write tests first (follow TDD process)
 3. Implement feature
 4. Open PR with description
