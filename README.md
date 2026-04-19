@@ -29,9 +29,10 @@ ollama pull nomic-embed-text
 ### With Docker
 
 ```bash
-ollama serve
-docker compose up
+./start.sh
 ```
+
+This starts Ollama (if not already running), pulls the required models, and brings up the backend and frontend via Docker.
 
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
