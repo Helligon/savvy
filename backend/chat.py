@@ -1,6 +1,9 @@
+import os
 from enum import Enum
 
 from llama_index.llms.ollama import Ollama
+
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 from backend.ingest import get_index
 
@@ -27,7 +30,7 @@ _TEMPERATURES: dict[QueryMode, float] = {
 
 def ask(question: str, game_ids: list[str], stream: bool = False, mode: QueryMode = QueryMode.RULES):
     temperature = _TEMPERATURES[mode]
-    llm = Ollama(model="mistral", base_url="http://localhost:11434",
+    llm = Ollama(model="mistral", base_url=OLLAMA_BASE_URL,
                  temperature=temperature, request_timeout=120.0)
 
     if not game_ids:

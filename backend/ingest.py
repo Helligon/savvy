@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
 import chromadb
 import fitz  # PyMuPDF
 import trafilatura
@@ -17,7 +19,7 @@ DOCUMENTS_PATH = Path(__file__).parent / "data" / "documents"
 
 
 def _embedding_model() -> OllamaEmbedding:
-    return OllamaEmbedding(model_name="nomic-embed-text", base_url="http://localhost:11434")
+    return OllamaEmbedding(model_name="nomic-embed-text", base_url=OLLAMA_BASE_URL)
 
 
 def _chroma_collection(game_id: str):
