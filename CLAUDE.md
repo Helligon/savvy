@@ -65,7 +65,7 @@ python cli.py
 pytest tests/ -v
 ```
 
-Ollama must be running before starting the backend/CLI: `ollama serve`
+Ollama must be running before `s`tarting the backend/CLI: `ollama serve`
 
 ---
 
