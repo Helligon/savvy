@@ -80,7 +80,10 @@ Ollama must be running before `s`tarting the backend/CLI: `ollama serve`
 
 ## Key Behaviours
 
-**Temperature:** Use `temperature=0.1` for all rules/RAG queries (deterministic). Use `temperature=0.7` for character generation (creative). Pass temperature explicitly to every Ollama API call.
+**Temperature:** Always use the `QueryMode` enum from `backend/chat.py` — never hardcode a temperature value directly:
+- `QueryMode.RULES` → `0.1` — factual rules lookups (default)
+- `QueryMode.ITEM_STATS` → `0.3` — stat generation for items, weapons, apparel
+- `QueryMode.CHARACTER` → `0.7` — creative character generation
 
 **RAG scoping:** Queries are scoped to the game systems the user has selected on the landing page. Never query across all documents by default.
 

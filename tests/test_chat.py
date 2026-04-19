@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.chat import ask
+from backend.chat import QueryMode, ask
 
 
 @pytest.fixture
@@ -58,6 +58,24 @@ class TestAsk:
             ask("What is a critical hit?", game_ids=["dnd5e"])
 
         assert "[phb.pdf]" in captured_prompt["value"]
+
+    def test_uses_medium_temperature_for_item_stats(self, mock_index):
+        with patch("backend.chat.get_index", return_value=mock_index), \
+             patch("backend.chat.Ollama") as mock_ollama_cls:
+            mock_ollama_cls.return_value.complete.return_value.text = "Answer."
+            ask("Generate a magic sword", game_ids=["dnd5e"], mode=QueryMode.ITEM_STATS)
+
+        _, kwargs = mock_ollama_cls.call_args
+        assert kwargs["temperature"] == 0.3
+
+    def test_uses_high_temperature_for_character(self, mock_index):
+        with patch("backend.chat.get_index", return_value=mock_index), \
+             patch("backend.chat.Ollama") as mock_ollama_cls:
+            mock_ollama_cls.return_value.complete.return_value.text = "Answer."
+            ask("Generate a character", game_ids=["dnd5e"], mode=QueryMode.CHARACTER)
+
+        _, kwargs = mock_ollama_cls.call_args
+        assert kwargs["temperature"] == 0.7
 
     def test_returns_streamed_response(self, mock_index):
         with patch("backend.chat.get_index", return_value=mock_index), \

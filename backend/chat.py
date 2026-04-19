@@ -1,3 +1,5 @@
+from enum import Enum
+
 from llama_index.llms.ollama import Ollama
 
 from backend.ingest import get_index
@@ -10,14 +12,27 @@ SYSTEM_PROMPT = (
 )
 
 
-def ask(question: str, game_ids: list[str], stream: bool = False):
+class QueryMode(str, Enum):
+    RULES = "rules"          # temperature=0.1 — factual rules lookups
+    ITEM_STATS = "item_stats"  # temperature=0.3 — stat generation for items/weapons/apparel
+    CHARACTER = "character"  # temperature=0.7 — creative character generation
+
+
+_TEMPERATURES: dict[QueryMode, float] = {
+    QueryMode.RULES: 0.1,
+    QueryMode.ITEM_STATS: 0.3,
+    QueryMode.CHARACTER: 0.7,
+}
+
+
+def ask(question: str, game_ids: list[str], stream: bool = False, mode: QueryMode = QueryMode.RULES):
+    temperature = _TEMPERATURES[mode]
     llm = Ollama(model="mistral", base_url="http://localhost:11434",
-                 temperature=0.1, request_timeout=120.0)
+                 temperature=temperature, request_timeout=120.0)
 
     if not game_ids:
         raise ValueError("At least one game must be selected.")
 
-    # Retrieve context from each selected game and combine
     context_chunks: list[str] = []
     for game_id in game_ids:
         index = get_index(game_id)
