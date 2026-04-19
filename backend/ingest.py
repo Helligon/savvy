@@ -8,6 +8,10 @@ from llama_index.core import Document, Settings, StorageContext, VectorStoreInde
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 
+# nomic-embed-text context limit; ~4 chars/token → 800 chars ≈ 200 tokens, safely within limits
+_CHUNK_CHARS = 800
+_CHUNK_OVERLAP = 100
+
 CHROMA_PATH = Path(__file__).parent / "data" / "chroma"
 DOCUMENTS_PATH = Path(__file__).parent / "data" / "documents"
 
@@ -36,7 +40,7 @@ def ingest_pdf(path: str, game_id: str, progress=None) -> int:
     for i, page in enumerate(doc):
         text = page.get_text().strip()
         if text:
-            chunks.append(Document(text=text, metadata={"source": Path(path).name, "page": i + 1}))
+            chunks.extend(_chunk_text(text, Path(path).name, page=i + 1))
         if progress:
             progress(i + 1, len(doc))
     _add_documents(chunks, game_id)
@@ -45,7 +49,7 @@ def ingest_pdf(path: str, game_id: str, progress=None) -> int:
 
 def ingest_text(path: str, game_id: str) -> int:
     text = Path(path).expanduser().resolve().read_text(encoding="utf-8")
-    chunks = [Document(text=text, metadata={"source": Path(path).name})]
+    chunks = _chunk_text(text, Path(path).name)
     _add_documents(chunks, game_id)
     return len(chunks)
 
@@ -55,7 +59,7 @@ def ingest_url(url: str, game_id: str) -> int:
     text = trafilatura.extract(downloaded)
     if not text:
         raise ValueError(f"Could not extract text from {url}")
-    chunks = [Document(text=text, metadata={"source": url})]
+    chunks = _chunk_text(text, url)
     _add_documents(chunks, game_id)
     return len(chunks)
 
@@ -63,6 +67,21 @@ def ingest_url(url: str, game_id: str) -> int:
 def list_games() -> list[str]:
     client = chromadb.PersistentClient(path=str(CHROMA_PATH))
     return [c.name for c in client.list_collections()]
+
+
+def _chunk_text(text: str, source: str, page: int | None = None) -> list[Document]:
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + _CHUNK_CHARS
+        chunk = text[start:end].strip()
+        if chunk:
+            meta = {"source": source}
+            if page is not None:
+                meta["page"] = page
+            chunks.append(Document(text=chunk, metadata=meta))
+        start += _CHUNK_CHARS - _CHUNK_OVERLAP
+    return chunks
 
 
 def _add_documents(docs: list[Document], game_id: str) -> None:
