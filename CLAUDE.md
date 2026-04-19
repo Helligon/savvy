@@ -45,6 +45,11 @@ cli.py            # CLI entry point (Phase 1 dev tool)
 
 ## Commands
 
+Activate the virtual environment first:
+```bash
+source .venv/bin/activate
+```
+
 ```bash
 # Backend (from repo root)
 uvicorn backend.main:app --reload
@@ -55,15 +60,18 @@ npm run build
 
 # CLI
 python cli.py
+
+# Tests (from repo root)
+pytest tests/ -v
 ```
 
-Ollama must be running before starting the backend: `ollama serve`
+Ollama must be running before starting the backend/CLI: `ollama serve`
 
 ---
 
 ## Workflow
 
-1. Create feature branch from `main` and name it with using the following example pattern: `<phase>: <message>`
+1. Create feature branch from `main` and name it with using the following example pattern: `<phase>/ <message>`
 2. Write tests first (follow TDD process)
 3. Implement feature
 4. Open PR with description
