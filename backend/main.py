@@ -3,7 +3,7 @@
 import re
 from pathlib import Path
 
-from fastapi import FastAPI, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator, model_validator
@@ -95,6 +95,7 @@ def post_chat(request: ChatRequest):
 
 @app.post("/ingest")
 async def post_ingest(
+    background_tasks: BackgroundTasks,
     file: UploadFile,
     game_id: str = Form(...),
 ):
@@ -107,7 +108,9 @@ async def post_ingest(
 
     # Determine file type from content-type, fall back to extension
     content_type = (file.content_type or "").lower()
-    filename = file.filename or "upload"
+    raw_filename = file.filename or "upload"
+    # Sanitise: strip any directory components to prevent path traversal
+    filename = Path(raw_filename).name
     ext = Path(filename).suffix.lower()
 
     if content_type == "application/pdf" or (content_type in ("", "application/octet-stream") and ext == ".pdf"):
@@ -125,10 +128,10 @@ async def post_ingest(
     dest = DOCUMENTS_PATH / filename
     dest.write_bytes(await file.read())
 
-    # Ingest
+    # Enqueue ingestion as a background task so the response returns immediately
     if file_type == "pdf":
-        chunks = ingest_pdf(str(dest), game_id)
+        background_tasks.add_task(ingest_pdf, str(dest), game_id)
     else:
-        chunks = ingest_text(str(dest), game_id)
+        background_tasks.add_task(ingest_text, str(dest), game_id)
 
-    return {"chunks": chunks, "game_id": game_id}
+    return {"status": "ingesting", "game_id": game_id}
