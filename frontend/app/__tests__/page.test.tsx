@@ -31,18 +31,24 @@ jest.mock("next/link", () => {
 });
 
 const GAMES_RESPONSE = { games: ["savageworlds", "dnd5e", "pathfinder2e"] };
+const MODELS_RESPONSE = { models: ["mistral", "llama3.2"] };
 
-function mockFetchGames(): void {
-  global.fetch = jest.fn().mockResolvedValue({
-    ok: true,
-    json: async () => GAMES_RESPONSE,
-  } as Response);
+function mockFetchGamesAndModels(): void {
+  global.fetch = jest.fn().mockImplementation(async (url: string) => {
+    if (url === "http://localhost:8000/games") {
+      return { ok: true, json: async () => GAMES_RESPONSE };
+    }
+    if (url === "http://localhost:8000/models") {
+      return { ok: true, json: async () => MODELS_RESPONSE };
+    }
+    return { ok: true, json: async () => ({}) };
+  });
 }
 
 describe("LandingPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockFetchGames();
+    mockFetchGamesAndModels();
   });
 
   test("fetches and renders games on load", async () => {
@@ -55,6 +61,35 @@ describe("LandingPage", () => {
     expect(global.fetch).toHaveBeenCalledWith(
       "http://localhost:8000/games"
     );
+  });
+
+  test("fetches and renders model options on load", async () => {
+    render(<LandingPage />);
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith("http://localhost:8000/models");
+      expect(screen.getByRole("option", { name: "mistral" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "llama3.2" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("combobox", { name: /model/i })).toBeInTheDocument();
+  });
+
+  test("default selected model is mistral", async () => {
+    render(<LandingPage />);
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "mistral" })).toBeInTheDocument();
+    });
+    const select = screen.getByRole("combobox", { name: /model/i }) as HTMLSelectElement;
+    expect(select.value).toBe("mistral");
+  });
+
+  test("selecting a model updates the dropdown value", async () => {
+    render(<LandingPage />);
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "llama3.2" })).toBeInTheDocument();
+    });
+    const select = screen.getByRole("combobox", { name: /model/i }) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "llama3.2" } });
+    expect(select.value).toBe("llama3.2");
   });
 
   test("clicking a game card toggles selection", async () => {
@@ -86,10 +121,11 @@ describe("LandingPage", () => {
     expect(btn).not.toBeDisabled();
   });
 
-  test("Start Chatting navigates with selected game IDs", async () => {
+  test("Start Chatting navigates with selected game IDs and model", async () => {
     render(<LandingPage />);
     await waitFor(() => {
       expect(screen.getByText("savageworlds")).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: /model/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText("savageworlds").closest("button")!);
@@ -104,6 +140,26 @@ describe("LandingPage", () => {
     const callArg: string = mockPush.mock.calls[0][0] as string;
     expect(callArg).toContain("savageworlds");
     expect(callArg).toContain("dnd5e");
+    expect(callArg).toContain("model=mistral");
+  });
+
+  test("Start Chatting includes the selected model in the URL", async () => {
+    render(<LandingPage />);
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: /model/i })).toBeInTheDocument();
+      expect(screen.getByText("savageworlds")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("savageworlds").closest("button")!);
+
+    const select = screen.getByRole("combobox", { name: /model/i });
+    fireEvent.change(select, { target: { value: "llama3.2" } });
+
+    const btn = screen.getByRole("button", { name: /start chatting/i });
+    fireEvent.click(btn);
+
+    const callArg: string = mockPush.mock.calls[0][0] as string;
+    expect(callArg).toContain("model=llama3.2");
   });
 
   test("upload calls /ingest with correct form data", async () => {
@@ -114,18 +170,18 @@ describe("LandingPage", () => {
     let capturedFormData: FormData | null = null;
     global.fetch = jest
       .fn()
-      .mockImplementationOnce(async (url: string) => {
+      .mockImplementation(async (url: string, opts?: RequestInit) => {
         if (url === "http://localhost:8000/games") {
           return { ok: true, json: async () => GAMES_RESPONSE };
         }
+        if (url === "http://localhost:8000/models") {
+          return { ok: true, json: async () => MODELS_RESPONSE };
+        }
+        if (url === "http://localhost:8000/ingest") {
+          capturedFormData = opts?.body as FormData;
+          return { ok: true, json: async () => ({ chunks: 5, game_id: "myGame" }) };
+        }
         return { ok: true, json: async () => ({}) };
-      })
-      .mockImplementationOnce(async (_url: string, opts: RequestInit) => {
-        capturedFormData = opts.body as FormData;
-        return {
-          ok: true,
-          json: async () => ({ chunks: 5, game_id: "myGame" }),
-        };
       });
 
     render(<LandingPage />);
@@ -166,13 +222,17 @@ describe("LandingPage", () => {
 
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => GAMES_RESPONSE,
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ chunks: 5, game_id: "myGame" }),
+      .mockImplementation(async (url: string) => {
+        if (url === "http://localhost:8000/games") {
+          return { ok: true, json: async () => GAMES_RESPONSE };
+        }
+        if (url === "http://localhost:8000/models") {
+          return { ok: true, json: async () => MODELS_RESPONSE };
+        }
+        if (url === "http://localhost:8000/ingest") {
+          return { ok: true, json: async () => ({ chunks: 5, game_id: "myGame" }) };
+        }
+        return { ok: true, json: async () => ({}) };
       });
 
     render(<LandingPage />);

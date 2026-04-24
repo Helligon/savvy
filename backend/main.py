@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator, model_validator
 
-from backend.chat import ask
+from backend.chat import SupportedModel, ask
 from backend.ingest import DOCUMENTS_PATH, ingest_pdf, ingest_text, list_games
 
 # ---------------------------------------------------------------------------
@@ -48,6 +48,7 @@ def _validate_game_id(game_id: str) -> str:
 class ChatRequest(BaseModel):
     message: str
     game_ids: list[str]
+    model: SupportedModel = SupportedModel.MISTRAL
 
     @field_validator("message")
     @classmethod
@@ -73,6 +74,12 @@ class ChatRequest(BaseModel):
 # Routes
 # ---------------------------------------------------------------------------
 
+@app.get("/models")
+def get_models():
+    """Return list of supported model names."""
+    return {"models": [m.value for m in SupportedModel]}
+
+
 @app.get("/games")
 def get_games():
     """Return list of indexed game system IDs from ChromaDB."""
@@ -84,7 +91,7 @@ def post_chat(request: ChatRequest):
     """Stream an SSE response for the given message scoped to selected games."""
 
     def event_stream():
-        stream = ask(request.message, game_ids=request.game_ids, stream=True)
+        stream = ask(request.message, game_ids=request.game_ids, stream=True, model=request.model.value)
         for chunk in stream:
             if chunk.delta:
                 yield f"data: {chunk.delta}\n\n"
