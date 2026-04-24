@@ -15,6 +15,18 @@ client = TestClient(app)
 # GET /games
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# GET /models
+# ---------------------------------------------------------------------------
+
+class TestGetModels:
+    def test_returns_model_list(self):
+        response = client.get("/models")
+
+        assert response.status_code == 200
+        assert response.json() == {"models": ["mistral", "llama3.2"]}
+
+
 class TestGetGames:
     def test_returns_game_list(self):
         with patch("backend.main.list_games", return_value=["dnd5e", "pathfinder"]):
@@ -87,7 +99,34 @@ class TestPostChat:
                 json={"message": "Hello?", "game_ids": ["dnd5e"]},
             )
 
-        mock_ask.assert_called_once_with("Hello?", game_ids=["dnd5e"], stream=True)
+        mock_ask.assert_called_once_with("Hello?", game_ids=["dnd5e"], stream=True, model="mistral", temperature=0.1)
+
+    def test_passes_default_model_mistral(self):
+        with patch("backend.main.ask", return_value=self._mock_stream(["ok"])) as mock_ask:
+            client.post(
+                "/chat",
+                json={"message": "Hello?", "game_ids": ["dnd5e"]},
+            )
+
+        _, kwargs = mock_ask.call_args
+        assert kwargs["model"] == "mistral"
+
+    def test_passes_specified_model_to_ask(self):
+        with patch("backend.main.ask", return_value=self._mock_stream(["ok"])) as mock_ask:
+            client.post(
+                "/chat",
+                json={"message": "Hello?", "game_ids": ["dnd5e"], "model": "llama3.2"},
+            )
+
+        _, kwargs = mock_ask.call_args
+        assert kwargs["model"] == "llama3.2"
+
+    def test_rejects_invalid_model_name(self):
+        response = client.post(
+            "/chat",
+            json={"message": "Hello?", "game_ids": ["dnd5e"], "model": "gpt-4"},
+        )
+        assert response.status_code == 422
 
     def test_passes_multiple_game_ids(self):
         with patch("backend.main.ask", return_value=self._mock_stream(["ok"])) as mock_ask:

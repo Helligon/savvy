@@ -52,9 +52,13 @@ describe("ChatPage", () => {
   });
 
   test("reads game IDs from query params and includes them in /chat request", async () => {
-    mockSearchParamsGet.mockReturnValue("savageworlds,dnd5e");
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === "games") return "savageworlds,dnd5e";
+      if (key === "model") return "mistral";
+      return null;
+    });
 
-    let capturedBody: { message: string; game_ids: string[] } | null = null;
+    let capturedBody: { message: string; game_ids: string[]; model: string } | null = null;
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       body: makeSSEStream(["Hello"]),
@@ -81,14 +85,108 @@ describe("ChatPage", () => {
     capturedBody = JSON.parse(callOpts.body as string) as {
       message: string;
       game_ids: string[];
+      model: string;
     };
 
     expect(capturedBody.game_ids).toEqual(["savageworlds", "dnd5e"]);
     expect(capturedBody.message).toBe("Test message");
   });
 
+  test("reads model from query params and includes it in POST body", async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === "games") return "savageworlds";
+      if (key === "model") return "llama3.2";
+      return null;
+    });
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      body: makeSSEStream(["OK"]),
+    } as unknown as Response);
+
+    render(<ChatPage />);
+
+    const input = screen.getByRole("textbox");
+    const sendBtn = screen.getByRole("button", { name: /send/i });
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "Test message" } });
+      fireEvent.click(sendBtn);
+    });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/chat",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    const callOpts = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(callOpts.body as string) as {
+      message: string;
+      game_ids: string[];
+      model: string;
+    };
+
+    expect(body.model).toBe("llama3.2");
+  });
+
+  test("defaults model to mistral if not in query params", async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === "games") return "savageworlds";
+      return null; // model param missing
+    });
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      body: makeSSEStream(["OK"]),
+    } as unknown as Response);
+
+    render(<ChatPage />);
+
+    const input = screen.getByRole("textbox");
+    const sendBtn = screen.getByRole("button", { name: /send/i });
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "Test message" } });
+      fireEvent.click(sendBtn);
+    });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/chat",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    const callOpts = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(callOpts.body as string) as {
+      message: string;
+      game_ids: string[];
+      model: string;
+    };
+
+    expect(body.model).toBe("mistral");
+  });
+
+  test("displays the active model name in the header", async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === "games") return "savageworlds";
+      if (key === "model") return "llama3.2";
+      return null;
+    });
+
+    render(<ChatPage />);
+
+    expect(screen.getByText(/llama3\.2/)).toBeInTheDocument();
+  });
+
   test("renders streamed tokens as they arrive", async () => {
-    mockSearchParamsGet.mockReturnValue("savageworlds");
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === "games") return "savageworlds";
+      if (key === "model") return "mistral";
+      return null;
+    });
 
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -111,7 +209,11 @@ describe("ChatPage", () => {
   });
 
   test("shows user message right-aligned", async () => {
-    mockSearchParamsGet.mockReturnValue("savageworlds");
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === "games") return "savageworlds";
+      if (key === "model") return "mistral";
+      return null;
+    });
 
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -133,9 +235,107 @@ describe("ChatPage", () => {
   });
 
   test("shows back link to landing page", () => {
-    mockSearchParamsGet.mockReturnValue("savageworlds");
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === "games") return "savageworlds";
+      if (key === "model") return "mistral";
+      return null;
+    });
     render(<ChatPage />);
     const backLink = screen.getByRole("link", { name: /back/i });
     expect(backLink).toHaveAttribute("href", "/");
+  });
+
+  test("reads temperature from query params and includes it in POST body", async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === "games") return "savageworlds";
+      if (key === "model") return "mistral";
+      if (key === "temperature") return "0.7";
+      return null;
+    });
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      body: makeSSEStream(["OK"]),
+    } as unknown as Response);
+
+    render(<ChatPage />);
+
+    const input = screen.getByRole("textbox");
+    const sendBtn = screen.getByRole("button", { name: /send/i });
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "Test message" } });
+      fireEvent.click(sendBtn);
+    });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/chat",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    const callOpts = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(callOpts.body as string) as {
+      message: string;
+      game_ids: string[];
+      model: string;
+      temperature: number;
+    };
+
+    expect(body.temperature).toBe(0.7);
+  });
+
+  test("defaults temperature to 0.1 if missing from query params", async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === "games") return "savageworlds";
+      if (key === "model") return "mistral";
+      return null; // temperature param missing
+    });
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      body: makeSSEStream(["OK"]),
+    } as unknown as Response);
+
+    render(<ChatPage />);
+
+    const input = screen.getByRole("textbox");
+    const sendBtn = screen.getByRole("button", { name: /send/i });
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "Test message" } });
+      fireEvent.click(sendBtn);
+    });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/chat",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    const callOpts = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(callOpts.body as string) as {
+      message: string;
+      game_ids: string[];
+      model: string;
+      temperature: number;
+    };
+
+    expect(body.temperature).toBe(0.1);
+  });
+
+  test("displays temperature value in the header alongside model name", () => {
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === "games") return "savageworlds";
+      if (key === "model") return "mistral";
+      if (key === "temperature") return "0.3";
+      return null;
+    });
+
+    render(<ChatPage />);
+
+    expect(screen.getByText(/0\.3/)).toBeInTheDocument();
   });
 });

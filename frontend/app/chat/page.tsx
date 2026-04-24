@@ -14,6 +14,8 @@ export function ChatPage(): React.JSX.Element {
   const searchParams = useSearchParams();
   const gamesParam = searchParams.get("games") ?? "";
   const gameIds = gamesParam ? gamesParam.split(",").filter(Boolean) : [];
+  const model = searchParams.get("model") ?? "mistral";
+  const temperature = parseFloat(searchParams.get("temperature") ?? "0.1");
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
@@ -48,7 +50,7 @@ export function ChatPage(): React.JSX.Element {
       const res = await fetch("http://localhost:8000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, game_ids: gameIds }),
+        body: JSON.stringify({ message: text, game_ids: gameIds, model, temperature }),
       });
 
       if (!res.ok || !res.body) {
@@ -94,7 +96,7 @@ export function ChatPage(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, gameIds]);
+  }, [input, loading, gameIds, model, temperature]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -120,6 +122,7 @@ export function ChatPage(): React.JSX.Element {
             [{gameIds.join(", ")}]
           </span>
         )}
+        <span className="ml-auto text-xs text-gray-500">{model} · temp {temperature}</span>
       </header>
 
       {/* Messages */}

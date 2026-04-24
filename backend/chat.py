@@ -15,6 +15,11 @@ SYSTEM_PROMPT = (
 )
 
 
+class SupportedModel(str, Enum):
+    MISTRAL = "mistral"
+    LLAMA = "llama3.2"
+
+
 class QueryMode(str, Enum):
     RULES = "rules"          # temperature=0.1 — factual rules lookups
     ITEM_STATS = "item_stats"  # temperature=0.3 — stat generation for items/weapons/apparel
@@ -28,9 +33,9 @@ _TEMPERATURES: dict[QueryMode, float] = {
 }
 
 
-def ask(question: str, game_ids: list[str], stream: bool = False, mode: QueryMode = QueryMode.RULES):
-    temperature = _TEMPERATURES[mode]
-    llm = Ollama(model="mistral", base_url=OLLAMA_BASE_URL,
+def ask(question: str, game_ids: list[str], stream: bool = False, mode: QueryMode = QueryMode.RULES, model: SupportedModel = SupportedModel.MISTRAL, temperature: float | None = None):
+    temperature = temperature if temperature is not None else _TEMPERATURES[mode]
+    llm = Ollama(model=model.value, base_url=OLLAMA_BASE_URL,
                  temperature=temperature, request_timeout=120.0)
 
     if not game_ids:

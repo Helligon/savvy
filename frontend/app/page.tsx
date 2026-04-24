@@ -7,6 +7,10 @@ interface GamesResponse {
   games: string[];
 }
 
+interface ModelsResponse {
+  models: string[];
+}
+
 interface IngestResponse {
   chunks: number;
   game_id: string;
@@ -16,6 +20,9 @@ export function LandingPage(): React.JSX.Element {
   const router = useRouter();
   const [games, setGames] = useState<string[]>([]);
   const [selectedGames, setSelectedGames] = useState<Set<string>>(new Set());
+  const [models, setModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("mistral");
+  const [temperature, setTemperature] = useState<number>(0.1);
   const [file, setFile] = useState<File | null>(null);
   const [gameId, setGameId] = useState<string>("");
   const [uploading, setUploading] = useState<boolean>(false);
@@ -31,9 +38,20 @@ export function LandingPage(): React.JSX.Element {
     }
   }, []);
 
+  const fetchModels = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch("http://localhost:8000/models");
+      const data = (await res.json()) as ModelsResponse;
+      setModels(data.models);
+    } catch {
+      // silently fail
+    }
+  }, []);
+
   useEffect(() => {
     void fetchGames();
-  }, [fetchGames]);
+    void fetchModels();
+  }, [fetchGames, fetchModels]);
 
   const toggleGame = (game: string): void => {
     setSelectedGames((prev) => {
@@ -49,7 +67,7 @@ export function LandingPage(): React.JSX.Element {
 
   const handleStartChatting = (): void => {
     const ids = Array.from(selectedGames).join(",");
-    void router.push(`/chat?games=${ids}`);
+    void router.push(`/chat?games=${ids}&model=${selectedModel}&temperature=${temperature}`);
   };
 
   const handleUpload = async (): Promise<void> => {
@@ -99,6 +117,48 @@ export function LandingPage(): React.JSX.Element {
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="mb-10">
+        <label
+          htmlFor="model-select"
+          className="block text-sm font-medium text-gray-300 mb-2"
+        >
+          Model
+        </label>
+        <select
+          id="model-select"
+          aria-label="Model"
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
+          className="px-3 py-2 bg-gray-800 rounded border border-gray-600 text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          {models.map((model) => (
+            <option key={model} value={model}>
+              {model}
+            </option>
+          ))}
+        </select>
+      </section>
+
+      <section className="mb-10">
+        <label
+          htmlFor="temperature-slider"
+          className="block text-sm font-medium text-gray-300 mb-2"
+        >
+          Temperature: {temperature}
+        </label>
+        <input
+          id="temperature-slider"
+          aria-label="Temperature"
+          type="range"
+          min={0}
+          max={1}
+          step={0.1}
+          value={temperature}
+          onChange={(e) => setTemperature(parseFloat(e.target.value))}
+          className="w-48 accent-indigo-500"
+        />
       </section>
 
       <section className="mb-10 bg-gray-800 p-6 rounded-xl max-w-md">
