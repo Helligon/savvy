@@ -49,6 +49,14 @@ class ChatRequest(BaseModel):
     message: str
     game_ids: list[str]
     model: SupportedModel = SupportedModel.MISTRAL
+    temperature: float = 0.1
+
+    @field_validator("temperature")
+    @classmethod
+    def validate_temperature(cls, v: float) -> float:
+        if not 0.0 <= v <= 1.0:
+            raise ValueError("temperature must be between 0.0 and 1.0")
+        return round(v, 2)
 
     @field_validator("message")
     @classmethod
@@ -91,7 +99,7 @@ def post_chat(request: ChatRequest):
     """Stream an SSE response for the given message scoped to selected games."""
 
     def event_stream():
-        stream = ask(request.message, game_ids=request.game_ids, stream=True, model=request.model)
+        stream = ask(request.message, game_ids=request.game_ids, stream=True, model=request.model, temperature=request.temperature)
         for chunk in stream:
             if chunk.delta:
                 yield f"data: {chunk.delta}\n\n"

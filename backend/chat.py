@@ -33,8 +33,8 @@ _TEMPERATURES: dict[QueryMode, float] = {
 }
 
 
-def ask(question: str, game_ids: list[str], stream: bool = False, mode: QueryMode = QueryMode.RULES, model: SupportedModel = SupportedModel.MISTRAL):
-    temperature = _TEMPERATURES[mode]
+def ask(question: str, game_ids: list[str], stream: bool = False, mode: QueryMode = QueryMode.RULES, model: SupportedModel = SupportedModel.MISTRAL, temperature: float | None = None):
+    temperature = temperature if temperature is not None else _TEMPERATURES[mode]
     llm = Ollama(model=model.value, base_url=OLLAMA_BASE_URL,
                  temperature=temperature, request_timeout=120.0)
 

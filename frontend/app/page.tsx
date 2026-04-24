@@ -22,6 +22,7 @@ export function LandingPage(): React.JSX.Element {
   const [selectedGames, setSelectedGames] = useState<Set<string>>(new Set());
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>("mistral");
+  const [temperature, setTemperature] = useState<number>(0.1);
   const [file, setFile] = useState<File | null>(null);
   const [gameId, setGameId] = useState<string>("");
   const [uploading, setUploading] = useState<boolean>(false);
@@ -66,7 +67,7 @@ export function LandingPage(): React.JSX.Element {
 
   const handleStartChatting = (): void => {
     const ids = Array.from(selectedGames).join(",");
-    void router.push(`/chat?games=${ids}&model=${selectedModel}`);
+    void router.push(`/chat?games=${ids}&model=${selectedModel}&temperature=${temperature}`);
   };
 
   const handleUpload = async (): Promise<void> => {
@@ -138,6 +139,26 @@ export function LandingPage(): React.JSX.Element {
             </option>
           ))}
         </select>
+      </section>
+
+      <section className="mb-10">
+        <label
+          htmlFor="temperature-slider"
+          className="block text-sm font-medium text-gray-300 mb-2"
+        >
+          Temperature: {temperature}
+        </label>
+        <input
+          id="temperature-slider"
+          aria-label="Temperature"
+          type="range"
+          min={0}
+          max={1}
+          step={0.1}
+          value={temperature}
+          onChange={(e) => setTemperature(parseFloat(e.target.value))}
+          className="w-48 accent-indigo-500"
+        />
       </section>
 
       <section className="mb-10 bg-gray-800 p-6 rounded-xl max-w-md">

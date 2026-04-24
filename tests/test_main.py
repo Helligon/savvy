@@ -99,7 +99,7 @@ class TestPostChat:
                 json={"message": "Hello?", "game_ids": ["dnd5e"]},
             )
 
-        mock_ask.assert_called_once_with("Hello?", game_ids=["dnd5e"], stream=True, model="mistral")
+        mock_ask.assert_called_once_with("Hello?", game_ids=["dnd5e"], stream=True, model="mistral", temperature=0.1)
 
     def test_passes_default_model_mistral(self):
         with patch("backend.main.ask", return_value=self._mock_stream(["ok"])) as mock_ask:

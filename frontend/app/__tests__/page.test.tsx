@@ -162,6 +162,39 @@ describe("LandingPage", () => {
     expect(callArg).toContain("model=llama3.2");
   });
 
+  test("temperature slider renders with default value 0.1", async () => {
+    render(<LandingPage />);
+    const slider = screen.getByRole("slider", { name: /temperature/i }) as HTMLInputElement;
+    expect(slider).toBeInTheDocument();
+    expect(slider.value).toBe("0.1");
+    expect(screen.getByText(/temperature:\s*0\.1/i)).toBeInTheDocument();
+  });
+
+  test("changing the temperature slider updates the displayed value", async () => {
+    render(<LandingPage />);
+    const slider = screen.getByRole("slider", { name: /temperature/i });
+    fireEvent.change(slider, { target: { value: "0.7" } });
+    expect(screen.getByText(/temperature:\s*0\.7/i)).toBeInTheDocument();
+  });
+
+  test("Start Chatting includes temperature in the navigation URL", async () => {
+    render(<LandingPage />);
+    await waitFor(() => {
+      expect(screen.getByText("savageworlds")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("savageworlds").closest("button")!);
+
+    const slider = screen.getByRole("slider", { name: /temperature/i });
+    fireEvent.change(slider, { target: { value: "0.5" } });
+
+    const btn = screen.getByRole("button", { name: /start chatting/i });
+    fireEvent.click(btn);
+
+    const callArg: string = mockPush.mock.calls[0][0] as string;
+    expect(callArg).toContain("temperature=0.5");
+  });
+
   test("upload calls /ingest with correct form data", async () => {
     const mockFile = new File(["content"], "test.pdf", {
       type: "application/pdf",

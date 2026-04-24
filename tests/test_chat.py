@@ -103,3 +103,21 @@ class TestAsk:
 
         _, kwargs = mock_ollama_cls.call_args
         assert kwargs["model"] == "llama3.2"
+
+    def test_custom_temperature_overrides_mode(self, mock_index):
+        with patch("backend.chat.get_index", return_value=mock_index), \
+             patch("backend.chat.Ollama") as mock_ollama_cls:
+            mock_ollama_cls.return_value.complete.return_value.text = "Answer."
+            ask("Question", game_ids=["dnd5e"], temperature=0.8)
+
+        _, kwargs = mock_ollama_cls.call_args
+        assert kwargs["temperature"] == 0.8
+
+    def test_mode_temperature_used_when_no_override(self, mock_index):
+        with patch("backend.chat.get_index", return_value=mock_index), \
+             patch("backend.chat.Ollama") as mock_ollama_cls:
+            mock_ollama_cls.return_value.complete.return_value.text = "Answer."
+            ask("Question", game_ids=["dnd5e"], mode=QueryMode.CHARACTER)
+
+        _, kwargs = mock_ollama_cls.call_args
+        assert kwargs["temperature"] == 0.7
