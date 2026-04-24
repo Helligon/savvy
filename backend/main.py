@@ -91,7 +91,7 @@ def post_chat(request: ChatRequest):
     """Stream an SSE response for the given message scoped to selected games."""
 
     def event_stream():
-        stream = ask(request.message, game_ids=request.game_ids, stream=True, model=request.model.value)
+        stream = ask(request.message, game_ids=request.game_ids, stream=True, model=request.model)
         for chunk in stream:
             if chunk.delta:
                 yield f"data: {chunk.delta}\n\n"
