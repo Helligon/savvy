@@ -97,13 +97,45 @@ class TestListGames:
         mock_col_2 = MagicMock()
         mock_col_2.name = "pathfinder"
 
-        with patch("chromadb.PersistentClient") as mock_client:
-            mock_client.return_value.list_collections.return_value = [mock_col_1, mock_col_2]
+        with patch("backend.ingest._chroma_client") as mock_client:
+            mock_client.list_collections.return_value = [mock_col_1, mock_col_2]
             games = list_games()
 
         assert games == ["dnd5e", "pathfinder"]
 
     def test_returns_empty_when_no_games(self, tmp_chroma):
-        with patch("chromadb.PersistentClient") as mock_client:
-            mock_client.return_value.list_collections.return_value = []
+        with patch("backend.ingest._chroma_client") as mock_client:
+            mock_client.list_collections.return_value = []
             assert list_games() == []
+
+
+class TestEmbeddingModelCache:
+    def test_embedding_model_is_cached(self):
+        """_embedding_model() must return the same object on repeated calls."""
+        import backend.ingest as ingest_mod
+
+        with patch("backend.ingest.OllamaEmbedding") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            # Reset any cached value so the test is deterministic
+            ingest_mod._embedding_model.cache_clear()
+
+            first = ingest_mod._embedding_model()
+            second = ingest_mod._embedding_model()
+
+        assert first is second
+        mock_cls.assert_called_once()  # constructor called only once
+
+
+class TestChromaClientSingleton:
+    def test_chroma_collection_uses_singleton_client(self, tmp_chroma):
+        """_chroma_collection must use the module-level _chroma_client, not create a new one."""
+        import backend.ingest as ingest_mod
+
+        with patch("backend.ingest._chroma_client") as mock_client:
+            mock_client.get_or_create_collection.return_value = MagicMock()
+            with patch("chromadb.PersistentClient") as mock_ctor:
+                ingest_mod._chroma_collection("dnd5e")
+
+        # The singleton should be used; no new client should be instantiated
+        mock_ctor.assert_not_called()
+        mock_client.get_or_create_collection.assert_called_once_with("dnd5e")

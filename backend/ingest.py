@@ -1,3 +1,4 @@
+import functools
 import os
 from pathlib import Path
 
@@ -17,14 +18,18 @@ _CHUNK_OVERLAP = 100
 CHROMA_PATH = Path(__file__).parent / "data" / "chroma"
 DOCUMENTS_PATH = Path(__file__).parent / "data" / "documents"
 
+# Module-level ChromaDB client singleton — avoids re-opening the database on every call.
+_chroma_client = chromadb.PersistentClient(path=str(CHROMA_PATH))
 
+
+@functools.lru_cache(maxsize=1)
 def _embedding_model() -> OllamaEmbedding:
+    """Return a cached OllamaEmbedding instance (created once per process)."""
     return OllamaEmbedding(model_name="nomic-embed-text", base_url=OLLAMA_BASE_URL)
 
 
 def _chroma_collection(game_id: str):
-    client = chromadb.PersistentClient(path=str(CHROMA_PATH))
-    return client.get_or_create_collection(game_id)
+    return _chroma_client.get_or_create_collection(game_id)
 
 
 def get_index(game_id: str) -> VectorStoreIndex:
@@ -67,8 +72,7 @@ def ingest_url(url: str, game_id: str) -> int:
 
 
 def list_games() -> list[str]:
-    client = chromadb.PersistentClient(path=str(CHROMA_PATH))
-    return [c.name for c in client.list_collections()]
+    return [c.name for c in _chroma_client.list_collections()]
 
 
 def _chunk_text(text: str, source: str, page: int | None = None) -> list[Document]:

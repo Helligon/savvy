@@ -220,7 +220,7 @@ class TestPostIngest:
             "file": (filename, io.BytesIO(b"%PDF-1.4 fake pdf content"), "application/pdf"),
         }
 
-    def test_ingest_pdf_returns_chunks_and_game_id(self):
+    def test_ingest_pdf_returns_ingesting_status_and_game_id(self):
         with patch("backend.main.ingest_pdf", return_value=12) as mock_ingest, \
              patch("backend.main.DOCUMENTS_PATH") as mock_path:
             # Make the save path a no-op
@@ -235,7 +235,7 @@ class TestPostIngest:
 
         assert response.status_code == 200
         body = response.json()
-        assert body["chunks"] == 12
+        assert body["status"] == "ingesting"
         assert body["game_id"] == "dnd5e"
 
     def test_ingest_text_file(self):
@@ -252,7 +252,7 @@ class TestPostIngest:
 
         assert response.status_code == 200
         body = response.json()
-        assert body["chunks"] == 3
+        assert body["status"] == "ingesting"
         assert body["game_id"] == "dnd5e"
 
     def test_ingest_pdf_called_for_pdf_content_type(self):
@@ -342,3 +342,85 @@ class TestPostIngest:
                     assert dest.exists()
 
         assert response.status_code == 200
+
+    # --- path-traversal fix ---
+
+    def test_path_traversal_filename_is_sanitised(self):
+        """A filename like ../../evil.pdf must be saved inside DOCUMENTS_PATH, not outside."""
+        import tempfile, pathlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            docs_path = pathlib.Path(tmpdir) / "documents"
+            docs_path.mkdir()
+
+            with patch("backend.main.DOCUMENTS_PATH", docs_path), \
+                 patch("backend.main.ingest_pdf", return_value=1):
+                response = client.post(
+                    "/ingest",
+                    data={"game_id": "dnd5e"},
+                    files={"file": ("../../evil.pdf", io.BytesIO(b"%PDF traversal"), "application/pdf")},
+                )
+
+            assert response.status_code == 200
+            # The file must NOT escape DOCUMENTS_PATH (two levels up)
+            evil_path = pathlib.Path(tmpdir) / "evil.pdf"
+            assert not evil_path.exists(), "File must not escape DOCUMENTS_PATH"
+            # The sanitised file must land inside documents dir
+            inside_path = docs_path / "evil.pdf"
+            assert inside_path.exists(), "Sanitised file must be saved inside DOCUMENTS_PATH"
+
+    # --- background task ---
+
+    def test_ingest_returns_immediately_with_ingesting_status(self):
+        """The /ingest endpoint must return immediately with status='ingesting'."""
+        import tempfile, pathlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            docs_path = pathlib.Path(tmpdir) / "documents"
+            docs_path.mkdir()
+
+            with patch("backend.main.DOCUMENTS_PATH", docs_path), \
+                 patch("backend.main.ingest_pdf", return_value=5):
+                response = client.post(
+                    "/ingest",
+                    data={"game_id": "dnd5e"},
+                    files={"file": ("rules.pdf", io.BytesIO(b"%PDF content"), "application/pdf")},
+                )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "ingesting"
+        assert body["game_id"] == "dnd5e"
+
+    def test_ingest_calls_ingest_as_background_task(self):
+        """ingest_pdf / ingest_text must be enqueued as a BackgroundTask, not called inline."""
+        import tempfile, pathlib
+        from fastapi.testclient import TestClient
+        from fastapi import BackgroundTasks
+        from backend.main import app
+
+        captured_tasks = []
+
+        # Intercept BackgroundTasks.add_task to capture what gets enqueued
+        original_add_task = BackgroundTasks.add_task
+
+        def spy_add_task(self, func, *args, **kwargs):
+            captured_tasks.append((func, args, kwargs))
+            original_add_task(self, func, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            docs_path = pathlib.Path(tmpdir) / "documents"
+            docs_path.mkdir()
+
+            with patch("backend.main.DOCUMENTS_PATH", docs_path), \
+                 patch("backend.main.ingest_pdf", return_value=5) as mock_pdf, \
+                 patch.object(BackgroundTasks, "add_task", spy_add_task):
+                response = client.post(
+                    "/ingest",
+                    data={"game_id": "dnd5e"},
+                    files={"file": ("rules.pdf", io.BytesIO(b"%PDF content"), "application/pdf")},
+                )
+
+        assert response.status_code == 200
+        # At least one background task must have been registered
+        assert len(captured_tasks) >= 1, "ingest_pdf should be registered as a background task"
